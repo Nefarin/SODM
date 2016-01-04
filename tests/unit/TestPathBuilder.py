@@ -29,6 +29,10 @@ class TestPathBuilder(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             p.PathBuilder.srcPath()
 
+    def test_srcPath(self):
+        with self.assertRaises(NotImplementedError):
+            p.PathBuilder.guiPath()
+
     def test_pathPath(self):
         with self.assertRaises(NotImplementedError):
             p.PathBuilder.pathPath()

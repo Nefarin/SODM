@@ -50,6 +50,14 @@ class TestDebugPathBuilder(unittest.TestCase):
             p.DebugPathBuilder.pathPath()
         except NotImplementedError:
             self.fail("Not implemented error.")
+
+    def test_guiPath(self):
+        self.assertEqual(p.DebugPathBuilder.guiPath(), "/home/marek/SODM/src/GUI")
+        try:
+            p.DebugPathBuilder.guiPath()
+        except NotImplementedError:
+            self.fail("Not implemented error.")
+
     def test_appendPath(self):
         self.assertEqual(p.DebugPathBuilder.appendPath("abc", "bca"), "abc/bca")
         self.assertEqual(p.DebugPathBuilder.appendPath(p.DebugPathBuilder.srcPath(), "abc"), p.DebugPathBuilder.srcPath() + "/abc")
