@@ -11,8 +11,10 @@ class Application():
         pass
     def run(self):
         self.app = QApplication(sys.argv)
+        self.app.setApplicationName("Simple Dicom Viewer")
         window = m.AppWindow()
         window.show()
+        window.iren.Initialize()
         return sys.exit(self.app.exec_())
 
 if __name__ == '__main__':
