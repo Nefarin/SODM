@@ -14,7 +14,7 @@ class Application():
         self.app.setApplicationName("Simple Dicom Viewer")
         window = m.AppWindow()
         window.show()
-        window.iren.Initialize()
+        #window.iren.Initialize()
         return sys.exit(self.app.exec_())
 
 if __name__ == '__main__':
