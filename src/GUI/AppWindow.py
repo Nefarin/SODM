@@ -2,7 +2,10 @@ import sys
 import imp
 import vtk
 import gdcm
+import os
+import re
 import vtkgdcm
+import time
 
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QApplication
@@ -39,7 +42,7 @@ class AppWindow(QtGui.QMainWindow):
         # will be shown as errors in pyCharm
         pass
     def initConnections(self):
-        self.connect(self.ui.actionLoad, QtCore.SIGNAL("triggered()"), self.loadFile)
+        self.connect(self.ui.actionLoad, QtCore.SIGNAL("triggered()"), self.loadSingleFile)
 
     def initGUI(self):
         QtGui.QMainWindow.__init__(self)
@@ -48,79 +51,114 @@ class AppWindow(QtGui.QMainWindow):
         self.setWindowTitle("Simple Dicom Viewer")
 
         #self.dicomReader = vtk.vtkDICOMImageReader()
-        self.dicomReader = vtkgdcm.vtkGDCMImageReader()
+        #self.dicomReader = vtkgdcm.vtkGDCMImageReader()
         self.vtkWidget = QVTKRenderWindowInteractor(self.ui.imageFrame)
+        self.ui.imageLayout.removeWidget(self.ui.dicomSlider)
         self.ui.imageLayout.addWidget(self.vtkWidget)
+        self.ui.imageLayout.addWidget(self.ui.dicomSlider)
+
+        self.disableSlider()
+        #self.ui.imageLayout.addWidget(tempWidget)
 
         self.viewer= vtk.vtkImageViewer()
         self.vtkWidget.GetRenderWindow().AddRenderer(self.viewer.GetRenderer())
         self.iren = self.vtkWidget.GetRenderWindow().GetInteractor()
+
         #self.iren.Initialize()
 
     def initToolbar(self):
         self.actions = Actions(self)
 
-    def loadFile(self):
-        loader = DicomLoader(self)
+    def loadSingleFile(self):
+        loader = DicomLoader(self, "file")
         loader.loadFile()
 
         if loader.accepted:
-            print("Accepted")
-            print(loader.selectedFile)
+            self.disableSlider()
+            self.dicomReader = vtkgdcm.vtkGDCMImageReader()
             self.dicomReader.SetFileName(str(loader.selectedFile))
 
-
             self.dicomReader.Update()
-            wtf = self.dicomReader.GetOutput()
-            #print(wtf)
-            size = self.ui.imageFrame.size()
+            imageData = self.dicomReader.GetOutput()
 
-            """
-            interp = vtk.vtkImageResample()
-            interp.SetInterpolationModeToLinear()
-            interp.SetInput(wtf)
-            interp.SetDimensionality(2)
-            interp.SetAxisMagnificationFactor(0, 0.5)
-            interp.SetAxisMagnificationFactor(1, 0.5)
-            interp.Update()
-            wtf = interp.GetOutput()
-            """
-            #wtf.SetDimensions(size.width()*0.5, size.height()*0.5, 1)
-            #print(self.ui.imageFrame.size())
-
-            toSize = wtf.GetDimensions()
-            #print(toSize)
-            width = toSize[0]
-            height = toSize[1]
-            #print(width)
-            #print(height)
-
+            size = imageData.GetDimensions()
+            width = size[0]
+            height = size[1]
             self.ui.imageFrame.setMaximumSize(QtCore.QSize(width, height))
             self.ui.imageFrame.setMinimumSize(QtCore.QSize(width, height))
-            #print(self.ui.imageFrame.maximumSize())
-            #self.dicomReader.SetOutput(wtf)
-            #self.dicomReader.Update()
 
 
             self.viewer.SetInputConnection(self.dicomReader.GetOutputPort())
-            #self.viewer.SetSize(size.width(), size.height())
-            #self.viewer.SetInput(wtf)
-            #self.viewer.Render()
-            #self.viewer.GetRenderer().ResetCamera()
-            #self.viewer.Render()
+            self.viewer.SetZSlice(0)
             self.iren.ReInitialize()
+            self.iren.Render()
             self.iren.Start()
 
+    def disableSlider(self):
+        self.ui.dicomSlider.setDisabled(True)
+        self.ui.dicomSlider.setValue(0)
+        self.ui.dicomSlider.disconnect(self.ui.dicomSlider, QtCore.SIGNAL("valueChanged(int)"), self.sliderMoved)
 
-        else:
-            print('Rejected')
+    @QtCore.pyqtSlot(int)
+    def sliderMoved(self, value):
+        try:
+            self.viewer.SetZSlice(value)
+            self.iren.Render()
+        except:
+            raise ValueError
 
+    def enableSlider(self, max):
+        self.ui.dicomSlider.setEnabled(True)
+        self.ui.dicomSlider.setValue(0)
+        self.ui.dicomSlider.setMinimum(0)
+        self.ui.dicomSlider.setMaximum(max)
+        self.ui.dicomSlider.connect(self.ui.dicomSlider, QtCore.SIGNAL("valueChanged(int)"), self.sliderMoved)
+    def loadFolder(self):
+        loader = DicomLoader(self, "series")
+        loader.loadFile()
+
+        if loader.accepted:
+            self.dicomReader = vtkgdcm.vtkGDCMImageReader()
+            regex = re.compile(r'.+\.dcm')
+            files = [x for x in os.listdir(loader.selectedFolder) if re.match(regex, x)]
+            self.seriesSize = len(files)
+            temp = vtk.vtkStringArray()
+            temp.SetNumberOfValues(len(files))
+            i = 0
+            for file in sorted(files):
+                temp.SetValue(i, os.path.join(str(loader.selectedFolder), file))
+                i = i + 1
+            self.dicomReader.SetFileNames(temp)
+            self.dicomReader.Update()
+
+            imageData = self.dicomReader.GetOutput()
+            size = imageData.GetDimensions()
+            width = size[0]
+            height = size[1]
+            self.ui.imageFrame.setMaximumSize(QtCore.QSize(width, height))
+            self.ui.imageFrame.setMinimumSize(QtCore.QSize(width, height))
+
+            self.viewer.SetInputConnection(self.dicomReader.GetOutputPort())
+            self.iren.ReInitialize()
+
+            self.enableSlider(self.seriesSize-1)
+            self.ui.dicomSlider.setFocus()
 
 class Actions(object):
     def __init__(self, parent):
         self.parent = parent
-        self.loadAction = QtGui.QAction("Load", parent.ui.toolBar)
-        parent.ui.toolBar.addAction(self.loadAction)
-        self.loadAction.connect(self.loadAction, QtCore.SIGNAL("triggered()"), self.loadFile)
-    def loadFile(self):
-        return self.parent.loadFile()
+
+        self.loadSingleAction = QtGui.QAction("Load..", parent.ui.toolBar)
+        parent.ui.toolBar.addAction(self.loadSingleAction)
+        self.loadSingleAction.connect(self.loadSingleAction, QtCore.SIGNAL("triggered()"), self.loadSingleFile)
+
+        self.loadFolderAction = QtGui.QAction("Load Series..", parent.ui.toolBar)
+        parent.ui.toolBar.addAction(self.loadFolderAction)
+        self.loadFolderAction.connect(self.loadFolderAction, QtCore.SIGNAL("triggered()"), self.loadFolder)
+
+
+    def loadSingleFile(self):
+        return self.parent.loadSingleFile()
+
+    def loadFolder(self):
+        return self.parent.loadFolder()
