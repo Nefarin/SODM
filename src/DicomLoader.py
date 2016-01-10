@@ -49,6 +49,9 @@ class DicomLoader(QtCore.QObject):
     def loadFile(self):
         self.dialog.exec_()
 
+    def setDir(self, directory):
+        self.dialog.setDirectory(directory)
+
     def accept(self):
 
         self.accepted = True

@@ -12,10 +12,15 @@ class Application():
     def run(self):
         self.app = QApplication(sys.argv)
         self.app.setApplicationName("Simple Dicom Viewer")
-        window = m.AppWindow()
-        window.show()
+        self.window = m.AppWindow(self.app)
+        self.app.connect(self.app, QtCore.SIGNAL("aboutToQuit()"), self.exit)
+        self.window.show()
         #window.iren.Initialize()
         return sys.exit(self.app.exec_())
+
+    def exit(self):
+        self.window.queue.put((self.window.processThread.stop, None,))
+        self.app.exit()
 
 if __name__ == '__main__':
     app = Application()

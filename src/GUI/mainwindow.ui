@@ -50,7 +50,18 @@
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
          </property>
-         <zorder>dicomFrame</zorder>
+         <layout class="QHBoxLayout" name="horizontalLayout_4">
+          <item>
+           <widget class="QTableWidget" name="dicomData">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </widget>
        </item>
        <item>
@@ -76,14 +87,52 @@
          <property name="lineWidth">
           <number>0</number>
          </property>
-         <layout class="QHBoxLayout" name="horizontalLayout">
+         <layout class="QVBoxLayout" name="verticalLayout_2">
           <item>
            <layout class="QGridLayout" name="dicomLayout">
             <item row="1" column="0">
-             <widget class="QSlider" name="dicomSlider">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
+             <widget class="QFrame" name="sliderFrame">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
               </property>
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>50</height>
+               </size>
+              </property>
+              <property name="frameShape">
+               <enum>QFrame::StyledPanel</enum>
+              </property>
+              <property name="frameShadow">
+               <enum>QFrame::Raised</enum>
+              </property>
+              <property name="lineWidth">
+               <number>0</number>
+              </property>
+              <layout class="QHBoxLayout" name="horizontalLayout">
+               <item>
+                <layout class="QHBoxLayout" name="sliderLayout">
+                 <item>
+                  <widget class="QSlider" name="dicomSlider">
+                   <property name="orientation">
+                    <enum>Qt::Horizontal</enum>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="playButton">
+                   <property name="text">
+                    <string>Play</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+              </layout>
              </widget>
             </item>
             <item row="0" column="0">
@@ -106,19 +155,6 @@
               <layout class="QGridLayout" name="gridLayout">
                <item row="0" column="0">
                 <layout class="QGridLayout" name="imageLayout"/>
-               </item>
-               <item row="1" column="0">
-                <spacer name="verticalSpacer">
-                 <property name="orientation">
-                  <enum>Qt::Vertical</enum>
-                 </property>
-                 <property name="sizeHint" stdset="0">
-                  <size>
-                   <width>20</width>
-                   <height>40</height>
-                  </size>
-                 </property>
-                </spacer>
                </item>
               </layout>
              </widget>
@@ -159,21 +195,21 @@
        <item>
         <widget class="QPushButton" name="pushButton">
          <property name="text">
-          <string>PushButton</string>
+          <string>Something</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="pushButton_2">
          <property name="text">
-          <string>PushButton</string>
+          <string>Would Be</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="pushButton_3">
          <property name="text">
-          <string>PushButton</string>
+          <string>There If Needed</string>
          </property>
         </widget>
        </item>
