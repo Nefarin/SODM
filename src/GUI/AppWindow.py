@@ -9,6 +9,12 @@ import time
 import thread
 import threading
 import Queue
+import numpy
+import numpy_support
+import dicom
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import multiprocessing
 
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QApplication
@@ -64,8 +70,11 @@ class AppWindow(QtGui.QMainWindow):
         self.disableSlider()
 
         self.viewer= vtk.vtkImageViewer()
+        #self.viewer.SetupInteractor(MyInteractor())
         self.vtkWidget.GetRenderWindow().AddRenderer(self.viewer.GetRenderer())
         self.iren = self.vtkWidget.GetRenderWindow().GetInteractor()
+        #self.iren.SetRenderWindow(self.vtkWidget.GetRenderWindow())
+
 
         self.drag = False
         self.iren.AddObserver("LeftButtonPressEvent", self.leftClick)
@@ -76,10 +85,10 @@ class AppWindow(QtGui.QMainWindow):
 
     def mouseMoved(self, *args):
         if self.drag:
-            print(args[0].GetEventPosition())
+            pass
+            #print(args[0].GetEventPosition())
     def mouseEntered(self, *args):
         self.drag = False
-        time.sleep(0.001)
         print("Entered")
 
     def mouseLeft(self, *args):
@@ -87,9 +96,15 @@ class AppWindow(QtGui.QMainWindow):
         print("Left")
 
     def leftClick(self, *args):
-        self.drag = True
-        time.sleep(0.001)
-        print(self.drag)
+        if self.drag == False:
+            self.drag = True
+            self.begin = args[0].GetEventPosition()
+            print(self.begin)
+            print(self.drag)
+        else:
+            self.drag = False
+            self.end = args[0].GetEventPosition()
+            self.drawLine([self.begin, self.end])
 
     def leftRelease(self, *args):
         self.drag = False
@@ -98,6 +113,55 @@ class AppWindow(QtGui.QMainWindow):
 
     def initToolbar(self):
         self.actions = Actions(self)
+
+    def drawLine(self, points):
+        try:
+            self.viewer.GetRenderer().RemoveActor(self.actor)
+            self.viewer.GetRenderer().Render()
+        except:
+            pass
+        point1 = points[0]
+        point2 = points[1]
+
+        points = vtk.vtkPoints()
+        points.SetNumberOfPoints(2)
+        points.Allocate(2)
+
+        points.InsertPoint(0, point1[0], point1[1], 0.001)
+        points.InsertPoint(1, point2[0], point2[1], 0.001)
+
+        dist = numpy.sqrt(numpy.square((point1[0]-point2[0])*0.028) + numpy.square((point1[1]-point2[1])*0.030))
+        self.cells = vtk.vtkCellArray()
+        self.cells.Initialize()
+
+        line = vtk.vtkLine()
+        line.GetPointIds().SetId(0,0)
+        line.GetPointIds().SetId(1,1)
+        self.cells.InsertNextCell(line)
+
+        self.poly = vtk.vtkPolyData()
+        self.poly.Initialize()
+        self.poly.SetPoints(points)
+        self.poly.SetLines(self.cells)
+        self.poly.Modified()
+
+        mapper = vtk.vtkPolyDataMapper2D()
+        #print(dir(mapper))
+        mapper.SetInput(self.poly)
+        mapper.ScalarVisibilityOn()
+        mapper.SetScalarModeToUsePointData()
+        mapper.Update()
+
+        self.actor = vtk.vtkActor2D()
+        self.actor.SetMapper(mapper)
+        self.viewer.GetRenderer().AddActor2D(self.actor)
+
+        box = QtGui.QMessageBox(self)
+        box.setInformativeText("Distance: " + str(dist) + " cm.")
+        box.show()
+
+
+
 
     def loadSingleFile(self):
         loader = self.fileLoader
@@ -109,6 +173,9 @@ class AppWindow(QtGui.QMainWindow):
             self.dicomReader = vtkgdcm.vtkGDCMImageReader()
             self.dicomReader.SetFileName(str(loader.selectedFile))
 
+            print(dir(self.dicomReader))
+            print(self.dicomReader.GetScale())
+
             self.dicomReader.Update()
             imageData = self.dicomReader.GetOutput()
             size = imageData.GetDimensions()
@@ -117,16 +184,70 @@ class AppWindow(QtGui.QMainWindow):
             self.vtkWidget.setMaximumSize(QtCore.QSize(width, height))
             self.vtkWidget.setMinimumSize(QtCore.QSize(width, height))
 
+            RefDs = dicom.read_file(str(loader.selectedFile))
+            ConstPixelDims = (int(RefDs.Rows), int(RefDs.Columns), 1)
 
-            self.viewer.SetInputConnection(self.dicomReader.GetOutputPort())
+            pointData = imageData.GetPointData()
+            arrayData = pointData.GetArray(0)
+            arrayDicom = numpy_support.vtk_to_numpy(arrayData)
+            arrayDicom = arrayDicom.reshape(ConstPixelDims, order='F')
+            shape = arrayDicom.shape
+            wtf = arrayDicom.reshape(shape[0], shape[1])
+            grad = numpy.gradient(wtf)
+            computed = numpy.fliplr(numpy.sqrt(numpy.square(grad[0]) + numpy.square(grad[1]))).transpose()
+            self.proc = DrawThread(computed)
+            self.proc.start()
+
+
+            #points = vtk.vtkPoints()
+            #points.SetNumberOfPoints(2)
+            #points.Allocate(2)
+
+            #points.InsertPoint(0, 100, 100, 0.001)
+            #points.InsertPoint(0, 200, 200, 0.001)
+
+            #cells = vtk.vtkCellArray()
+            #cells.Initialize()
+
+            #line = vtk.vtkLine()
+            #line.GetPointIds().SetId(0,0)
+            #line.GetPointIds().SetId(1,1)
+            #cells.InsertNextCell(line)
+
+            #poly = vtk.vtkPolyData()
+            #poly.Initialize()
+            #poly.SetPoints(points)
+            #poly.SetLines(cells)
+            #poly.Modified()
+
+            #mapper = vtk.vtkPolyDataMapper2D()
+            #print(dir(mapper))
+            #mapper.SetInput(poly)
+            #mapper.ScalarVisibilityOn()
+            #mapper.SetScalarModeToUsePointData()
+            #mapper.Update()
+
+            #self.drawLine([(200,200), (300,300)])
+
+            #actor = vtk.vtkActor2D()
+            #actor.SetMapper(mapper)
+            blend = vtk.vtkImageBlend()
+            blend.AddInputConnection(self.dicomReader.GetOutputPort())
+            #blend.AddInputConnection(actor.GetOutputPort())
+            self.viewer.SetInputConnection(blend.GetOutputPort())
+            #print(dir(self.viewer.GetRenderer()))
+            #self.viewer.GetRenderer().AddActor2D(actor)
+
+
+            #self.viewer.SetInputConnection(self.dicomReader.GetOutputPort())
             self.viewer.SetZSlice(0)
             self.getMedicalData()
             self.iren.ReInitialize()
             self.iren.Render()
             self.iren.Start()
 
-            actor = vtk.vtkImageActor()
-            self.viewer.GetRenderer().AddActor(actor)
+            #actor = vtk.vtkImageActor()
+            #self.viewer.GetRenderer().AddActor(actor)
             self.viewer.GetRenderer().Render()
 
 
@@ -144,6 +265,7 @@ class AppWindow(QtGui.QMainWindow):
             self.ui.dicomData.setVerticalHeaderItem(i, QtGui.QTableWidgetItem((data[i][0])))
             self.ui.dicomData.setItem(i, 0, QtGui.QTableWidgetItem((data[i][1])))
         self.ui.dicomData.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        self.ui.dicomData.setSortingEnabled(False)
         #print(data)
 
     def disableSlider(self):
@@ -310,3 +432,20 @@ class ThreadWait(object):
             time.sleep(0.05)
             self.obj.trigger.emit(i)
         self.obj.ended.emit()
+
+class MyInteractor(QVTKRenderWindowInteractor):
+    def __init__(self):
+        QVTKRenderWindowInteractor.__init__(self)
+        self.AddObserver("LeftButtonPressEvent", self.leftPressed)
+        self.Initialize()
+        self.Render()
+    def leftPressed(self):
+        print("WTF")
+
+class DrawThread(threading.Thread):
+    def __init__(self, data):
+        threading.Thread.__init__(self)
+        self.data = data
+    def run(self):
+        im = plt.imshow(self.data)
+        plt.show()
