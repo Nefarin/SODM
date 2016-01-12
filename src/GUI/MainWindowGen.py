@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Sun Jan 10 17:35:24 2016
+# Created: Tue Jan 12 13:14:06 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -51,7 +51,7 @@ class Ui_MainWindow(object):
         self.horizontalLayout_4 = QtGui.QHBoxLayout(self.explorerFrame)
         self.horizontalLayout_4.setObjectName(_fromUtf8("horizontalLayout_4"))
         self.dicomData = QtGui.QTableWidget(self.explorerFrame)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.MinimumExpanding, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.dicomData.sizePolicy().hasHeightForWidth())
@@ -118,11 +118,16 @@ class Ui_MainWindow(object):
         self.dicomLayout.addWidget(self.imageFrame, 0, 0, 1, 1)
         self.verticalLayout_2.addLayout(self.dicomLayout)
         self.horizontalLayout_2.addWidget(self.dicomFrame)
-        self.optionsFrame = QtGui.QFrame(self.topFrame)
-        self.optionsFrame.setFrameShape(QtGui.QFrame.StyledPanel)
-        self.optionsFrame.setFrameShadow(QtGui.QFrame.Raised)
-        self.optionsFrame.setObjectName(_fromUtf8("optionsFrame"))
-        self.horizontalLayout_2.addWidget(self.optionsFrame)
+        self.numpyFrame = QtGui.QFrame(self.topFrame)
+        self.numpyFrame.setFrameShape(QtGui.QFrame.StyledPanel)
+        self.numpyFrame.setFrameShadow(QtGui.QFrame.Raised)
+        self.numpyFrame.setObjectName(_fromUtf8("numpyFrame"))
+        self.verticalLayout_3 = QtGui.QVBoxLayout(self.numpyFrame)
+        self.verticalLayout_3.setObjectName(_fromUtf8("verticalLayout_3"))
+        self.numpyLayout = QtGui.QGridLayout()
+        self.numpyLayout.setObjectName(_fromUtf8("numpyLayout"))
+        self.verticalLayout_3.addLayout(self.numpyLayout)
+        self.horizontalLayout_2.addWidget(self.numpyFrame)
         self.verticalLayout.addWidget(self.topFrame)
         self.bottomFrame = QtGui.QFrame(self.centralwidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)

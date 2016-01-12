@@ -1,3 +1,5 @@
+### Imports below
+
 import sys
 import imp
 import vtk
@@ -12,6 +14,7 @@ import Queue
 import numpy
 import numpy_support
 import dicom
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import multiprocessing
@@ -23,6 +26,10 @@ from vtk.qt4.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from DicomLoader import DicomLoader
 from DebugPathBuilder import DebugPathBuilder
 from ProcessingThread import ProcessingThread
+from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+
+### End of imports section
 
 class AppWindow(QtGui.QMainWindow):
     def __init__(self, parent):
@@ -61,6 +68,14 @@ class AppWindow(QtGui.QMainWindow):
         #self.dicomReader = vtkgdcm.vtkGDCMImageReader()
         self.show()
 
+        self.figure = plt.figure()
+        self.canvas = FigureCanvas(self.figure)
+        self.toolbar = NavigationToolbar(self.canvas, self)
+        self.ui.numpyLayout.addWidget(self.toolbar)
+        self.ui.numpyLayout.addWidget(self.canvas)
+
+
+
         self.vtkWidget = QVTKRenderWindowInteractor(self.ui.imageFrame)
         self.vtkWidget.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         #self.ui.imageLayout.removeWidget(self.ui.dicomSlider)
@@ -77,6 +92,7 @@ class AppWindow(QtGui.QMainWindow):
 
 
         self.drag = False
+        self.measuring = False
         self.iren.AddObserver("LeftButtonPressEvent", self.leftClick)
         self.iren.AddObserver("LeftButtonReleaseEvent", self.leftRelease)
         self.iren.AddObserver("EnterEvent", self.mouseEntered)
@@ -85,7 +101,12 @@ class AppWindow(QtGui.QMainWindow):
 
     def mouseMoved(self, *args):
         if self.drag:
-            pass
+            self.temp = args[0].GetEventPosition()
+            print(self.temp)
+            print(self.begin)
+            self.drawLine([self.begin, self.temp])
+            return
+            time.sleep(0.1)
             #print(args[0].GetEventPosition())
     def mouseEntered(self, *args):
         self.drag = False
@@ -96,19 +117,28 @@ class AppWindow(QtGui.QMainWindow):
         print("Left")
 
     def leftClick(self, *args):
-        if self.drag == False:
-            self.drag = True
-            self.begin = args[0].GetEventPosition()
-            print(self.begin)
-            print(self.drag)
-        else:
-            self.drag = False
-            self.end = args[0].GetEventPosition()
-            self.drawLine([self.begin, self.end])
+        if self.measuring:
+            if self.drag == False:
+                self.drag = True
+                self.begin = args[0].GetEventPosition()
+                print(self.begin)
+                print(self.drag)
+            else:
+                self.drag = False
+                self.end = args[0].GetEventPosition()
+                self.drawLine([self.begin, self.end])
+                self.printDistance(self.dist)
 
     def leftRelease(self, *args):
-        self.drag = False
-        print(self.drag)
+        #self.drag = False
+        #print(self.drag)
+        pass
+
+    def printDistance(self, dist):
+        box = QtGui.QMessageBox(self)
+        box.setInformativeText("Distance: " + str(dist) + " cm.")
+        box.show()
+
 
 
     def initToolbar(self):
@@ -156,10 +186,7 @@ class AppWindow(QtGui.QMainWindow):
         self.actor.SetMapper(mapper)
         self.viewer.GetRenderer().AddActor2D(self.actor)
 
-        box = QtGui.QMessageBox(self)
-        box.setInformativeText("Distance: " + str(dist) + " cm.")
-        box.show()
-
+        self.dist = dist
 
 
 
@@ -193,10 +220,19 @@ class AppWindow(QtGui.QMainWindow):
             arrayDicom = arrayDicom.reshape(ConstPixelDims, order='F')
             shape = arrayDicom.shape
             wtf = arrayDicom.reshape(shape[0], shape[1])
+            wtf = numpy.fliplr(wtf).transpose()
+            max = numpy.max(wtf)
+            min = numpy.min(wtf)
+            print(numpy.max(wtf))
+            print(numpy.min(wtf))
             grad = numpy.gradient(wtf)
-            computed = numpy.fliplr(numpy.sqrt(numpy.square(grad[0]) + numpy.square(grad[1]))).transpose()
-            self.proc = DrawThread(computed)
-            self.proc.start()
+
+            print(wtf)
+            computed = numpy.sqrt(numpy.square(grad[0]) + numpy.square(grad[1]))
+            #self.proc.start()
+            ax = self.figure.add_subplot(111)
+            ax.imshow(wtf, interpolation="nearest", cmap=plt.get_cmap('gray'), vmin=0, vmax=max)
+            self.canvas.draw()
 
 
             #points = vtk.vtkPoints()
@@ -356,6 +392,8 @@ class AppWindow(QtGui.QMainWindow):
         print("Magnify")
     def cut(self):
         print("Cut")
+    def measure(self):
+        self.measuring = not self.measuring
 
 class Actions(object):
     def __init__(self, parent):
@@ -397,6 +435,14 @@ class Actions(object):
         parent.ui.toolBar.addAction(self.cutAction)
         self.cutAction.connect(self.cutAction, QtCore.SIGNAL("triggered()"), self.cut)
 
+        self.measureAction = QtGui.QAction(parent.ui.toolBar)
+        self.measureAction.setIcon(QtGui.QIcon(DebugPathBuilder.appendPath(DebugPathBuilder.resourcePath(), "line.png")))
+        self.measureAction.setToolTip("Measure")
+        self.measureAction.setCheckable(True)
+        parent.ui.toolBar.addAction(self.measureAction)
+        self. measureAction.connect(self.measureAction, QtCore.SIGNAL("triggered()"), self.measure)
+
+
 
     def loadSingleFile(self):
         return self.parent.loadSingleFile()
@@ -415,6 +461,9 @@ class Actions(object):
 
     def cut(self):
         return self.parent.cut()
+
+    def measure(self):
+        return self.parent.measure()
 
 
 class Waiter(QtCore.QObject):

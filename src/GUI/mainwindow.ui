@@ -54,7 +54,7 @@
           <item>
            <widget class="QTableWidget" name="dicomData">
             <property name="sizePolicy">
-             <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+             <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
@@ -165,13 +165,18 @@
         </widget>
        </item>
        <item>
-        <widget class="QFrame" name="optionsFrame">
+        <widget class="QFrame" name="numpyFrame">
          <property name="frameShape">
           <enum>QFrame::StyledPanel</enum>
          </property>
          <property name="frameShadow">
           <enum>QFrame::Raised</enum>
          </property>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <layout class="QGridLayout" name="numpyLayout"/>
+          </item>
+         </layout>
         </widget>
        </item>
       </layout>
