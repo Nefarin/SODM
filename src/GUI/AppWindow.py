@@ -69,13 +69,14 @@ class AppWindow(QtGui.QMainWindow):
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
 
-        self.figure.subplots_adjust(left=0.05, bottom=0.05, right=0.98, top=0.98)
+        self.figure.subplots_adjust(left=0.00, bottom=0.00, right=1.00, top=1.00)
+        #self.im = self.axes.imshow([0.0])
         self.toolbar = NavigationToolbar(self.canvas, self)
         self.ax = self.figure.add_subplot(111)
         self.canvas.updateGeometry()
         plt.axis("off")
 
-
+        self.firstImage = False
 
         #self.vtkWidget = QVTKRenderWindowInteractor(self.ui.imageFrame)
         #self.vtkWidget.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
@@ -155,9 +156,19 @@ class AppWindow(QtGui.QMainWindow):
 
 
     def drawSingleData(self, image, min, max, mode):
-        self.ax.imshow(image, interpolation="nearest", cmap=plt.get_cmap(mode), vmin=min, vmax=max)
-        self.figure.subplots_adjust(left=0.05, bottom=0.05, right=0.98, top=0.98)
-        self.figure.tight_layout()
+        #self.figure.clear()
+        #self.ax = self.figure.add_subplot(111)
+        #plt.axis("off")
+        #self.figure.subplots_adjust(left=0.00, bottom=0.00, right=1, top=1)
+        #self.ax.imshow(image, interpolation="nearest", cmap=plt.get_cmap(mode), vmin=min, vmax=max)
+        #self.ax.imshow(image, cmap=plt.get_cmap(mode), vmin=min, vmax=max)
+
+        #self.figure.tight_layout()
+        if not self.firstImage:
+            self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin=min, vmax=max)
+            self.firstImage = True
+        else:
+            self.im.set_data(image)
         self.canvas.draw()
 
     def getMedicalData(self):
@@ -197,8 +208,7 @@ class AppWindow(QtGui.QMainWindow):
     def movieStep(self, value):
         self.ui.dicomSlider.setValue(value)
         self.ui.dicomSlider.setSliderDown(value)
-        self.viewer.SetZSlice(value)
-        self.iren.Render()
+        self.drawSingleData(self.images[value], 0, self.images[value].max(), "gray")
 
     @QtCore.pyqtSlot()
     def playMovie(self):
