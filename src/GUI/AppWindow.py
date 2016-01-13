@@ -95,6 +95,7 @@ class AppWindow(QtGui.QMainWindow):
         self.thresholdingOff()
 
         self.viewer= vtk.vtkImageViewer()
+        self.measuring = False
         #self.vtkWidget.GetRenderWindow().AddRenderer(self.viewer.GetRenderer())
         #self.iren = self.vtkWidget.GetRenderWindow().GetInteractor()
         #self.iren.SetRenderWindow(self.vtkWidget.GetRenderWindow())
@@ -170,8 +171,10 @@ class AppWindow(QtGui.QMainWindow):
             self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin = min, vmax = max)
             self.firstImage = True
         else:
-            #self.im.set_data(image)
-            self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin = min, vmax = max)
+            self.im.set_data(image)
+            self.im.set_clim(vmin = min)
+            self.im.set_clim(vmax = max)
+            #self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin = min, vmax = max)
         self.canvas.draw()
 
     def map(self, image, min, max):
@@ -323,6 +326,14 @@ class AppWindow(QtGui.QMainWindow):
             self.thresholdingOn()
             self.ui.dicomSlider.setFocus()
 
+    def calcLength(self, xs, ys):
+        length = 0
+        for i in xrange(1, len(xs)):
+            length += numpy.sqrt(numpy.square(xs[i] - xs[0]) + numpy.square(ys[i] - ys[0]))
+        box = QtGui.QMessageBox(self)
+        box.setText(QtCore.QString("Line length: " + str(length)))
+        box.show()
+
     def undo(self):
         print("Undo")
     def redo(self):
@@ -333,6 +344,12 @@ class AppWindow(QtGui.QMainWindow):
         print("Cut")
     def measure(self):
         self.measuring = not self.measuring
+        if self.measuring:
+            self.line, = self.axes.plot([],[])
+            self.linebuilder = LineBuilder(self, self.line)
+        else:
+            self.figure.clf()
+            #self.axes.remove(self.line)
 
 class Actions(object):
     def __init__(self, parent):
@@ -420,4 +437,25 @@ class ThreadWait(object):
             time.sleep(0.05)
             self.obj.trigger.emit(i)
         self.obj.ended.emit()
+
+class LineBuilder:
+    def __init__(self, parent, line):
+        self.parent = parent
+        self.line = line
+        self.xs = list(line.get_xdata())
+        self.ys = list(line.get_ydata())
+        self.cid = line.figure.canvas.mpl_connect('button_press_event', self.draw)
+
+    def draw(self, event):
+        print 'click', event
+        if event.inaxes!=self.line.axes: return
+        if event.button == 1:
+            self.xs.append(event.xdata)
+            self.ys.append(event.ydata)
+            self.line.set_data(self.xs, self.ys)
+            self.line.figure.canvas.draw()
+        if event.button == 3:
+            self.line.figure.canvas.mpl_disconnect(self.cid)
+            self.parent.calcLength(self.xs, self.ys)
+            self.line.figure.remove(self.line)
 
