@@ -64,130 +64,38 @@ class AppWindow(QtGui.QMainWindow):
         self.ui.setupUi(self)
         self.setWindowTitle("Simple Dicom Viewer")
 
-        #self.dicomReader = vtk.vtkDICOMImageReader()
-        #self.dicomReader = vtkgdcm.vtkGDCMImageReader()
-        self.show()
-
-        self.figure = plt.figure()
+        #self.figure = plt.figure()
+        self.figure, self.axes = plt.subplots(nrows=1, ncols=1)
         self.canvas = FigureCanvas(self.figure)
+        self.canvas.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+
+        self.figure.subplots_adjust(left=0.05, bottom=0.05, right=0.98, top=0.98)
         self.toolbar = NavigationToolbar(self.canvas, self)
-        self.ui.numpyLayout.addWidget(self.toolbar)
-        self.ui.numpyLayout.addWidget(self.canvas)
+        self.ax = self.figure.add_subplot(111)
+        self.canvas.updateGeometry()
+        plt.axis("off")
 
 
 
-        self.vtkWidget = QVTKRenderWindowInteractor(self.ui.imageFrame)
-        self.vtkWidget.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        #self.vtkWidget = QVTKRenderWindowInteractor(self.ui.imageFrame)
+        #self.vtkWidget.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
         #self.ui.imageLayout.removeWidget(self.ui.dicomSlider)
-        self.ui.imageLayout.addWidget(self.vtkWidget)
+        #self.ui.imageLayout.addWidget(self.vtkWidget)
         #self.ui.imageLayout.addWidget(self.ui.dicomSlider)
+
+        self.ui.imageLayout.addWidget(self.canvas)
+        self.ui.imageLayout.addWidget(self.toolbar)
 
         self.disableSlider()
 
         self.viewer= vtk.vtkImageViewer()
-        #self.viewer.SetupInteractor(MyInteractor())
-        self.vtkWidget.GetRenderWindow().AddRenderer(self.viewer.GetRenderer())
-        self.iren = self.vtkWidget.GetRenderWindow().GetInteractor()
+        #self.vtkWidget.GetRenderWindow().AddRenderer(self.viewer.GetRenderer())
+        #self.iren = self.vtkWidget.GetRenderWindow().GetInteractor()
         #self.iren.SetRenderWindow(self.vtkWidget.GetRenderWindow())
-
-
-        self.drag = False
-        self.measuring = False
-        self.iren.AddObserver("LeftButtonPressEvent", self.leftClick)
-        self.iren.AddObserver("LeftButtonReleaseEvent", self.leftRelease)
-        self.iren.AddObserver("EnterEvent", self.mouseEntered)
-        self.iren.AddObserver("LeaveEvent", self.mouseLeft)
-        self.iren.AddObserver("MouseMoveEvent", self.mouseMoved)
-
-    def mouseMoved(self, *args):
-        if self.drag:
-            self.temp = args[0].GetEventPosition()
-            print(self.temp)
-            print(self.begin)
-            self.drawLine([self.begin, self.temp])
-            return
-            time.sleep(0.1)
-            #print(args[0].GetEventPosition())
-    def mouseEntered(self, *args):
-        self.drag = False
-        print("Entered")
-
-    def mouseLeft(self, *args):
-        self.drag = False
-        print("Left")
-
-    def leftClick(self, *args):
-        if self.measuring:
-            if self.drag == False:
-                self.drag = True
-                self.begin = args[0].GetEventPosition()
-                print(self.begin)
-                print(self.drag)
-            else:
-                self.drag = False
-                self.end = args[0].GetEventPosition()
-                self.drawLine([self.begin, self.end])
-                self.printDistance(self.dist)
-
-    def leftRelease(self, *args):
-        #self.drag = False
-        #print(self.drag)
-        pass
-
-    def printDistance(self, dist):
-        box = QtGui.QMessageBox(self)
-        box.setInformativeText("Distance: " + str(dist) + " cm.")
-        box.show()
-
 
 
     def initToolbar(self):
         self.actions = Actions(self)
-
-    def drawLine(self, points):
-        try:
-            self.viewer.GetRenderer().RemoveActor(self.actor)
-            self.viewer.GetRenderer().Render()
-        except:
-            pass
-        point1 = points[0]
-        point2 = points[1]
-
-        points = vtk.vtkPoints()
-        points.SetNumberOfPoints(2)
-        points.Allocate(2)
-
-        points.InsertPoint(0, point1[0], point1[1], 0.001)
-        points.InsertPoint(1, point2[0], point2[1], 0.001)
-
-        dist = numpy.sqrt(numpy.square((point1[0]-point2[0])*0.028) + numpy.square((point1[1]-point2[1])*0.030))
-        self.cells = vtk.vtkCellArray()
-        self.cells.Initialize()
-
-        line = vtk.vtkLine()
-        line.GetPointIds().SetId(0,0)
-        line.GetPointIds().SetId(1,1)
-        self.cells.InsertNextCell(line)
-
-        self.poly = vtk.vtkPolyData()
-        self.poly.Initialize()
-        self.poly.SetPoints(points)
-        self.poly.SetLines(self.cells)
-        self.poly.Modified()
-
-        mapper = vtk.vtkPolyDataMapper2D()
-        #print(dir(mapper))
-        mapper.SetInput(self.poly)
-        mapper.ScalarVisibilityOn()
-        mapper.SetScalarModeToUsePointData()
-        mapper.Update()
-
-        self.actor = vtk.vtkActor2D()
-        self.actor.SetMapper(mapper)
-        self.viewer.GetRenderer().AddActor2D(self.actor)
-
-        self.dist = dist
-
 
 
     def loadSingleFile(self):
@@ -200,92 +108,57 @@ class AppWindow(QtGui.QMainWindow):
             self.dicomReader = vtkgdcm.vtkGDCMImageReader()
             self.dicomReader.SetFileName(str(loader.selectedFile))
 
-            print(dir(self.dicomReader))
-            print(self.dicomReader.GetScale())
-
             self.dicomReader.Update()
             imageData = self.dicomReader.GetOutput()
             size = imageData.GetDimensions()
-            width = size[0]
-            height = size[1]
-            self.vtkWidget.setMaximumSize(QtCore.QSize(width, height))
-            self.vtkWidget.setMinimumSize(QtCore.QSize(width, height))
 
             RefDs = dicom.read_file(str(loader.selectedFile))
-            ConstPixelDims = (int(RefDs.Rows), int(RefDs.Columns), 1)
 
-            pointData = imageData.GetPointData()
-            arrayData = pointData.GetArray(0)
-            arrayDicom = numpy_support.vtk_to_numpy(arrayData)
-            arrayDicom = arrayDicom.reshape(ConstPixelDims, order='F')
-            shape = arrayDicom.shape
-            wtf = arrayDicom.reshape(shape[0], shape[1])
-            wtf = numpy.fliplr(wtf).transpose()
-            max = numpy.max(wtf)
-            min = numpy.min(wtf)
-            print(numpy.max(wtf))
-            print(numpy.min(wtf))
-            grad = numpy.gradient(wtf)
+            self.image = self.convertSingleData(imageData, RefDs)
+            self.drawSingleData(self.image, 0, self.image.max(), "gray")
 
-            print(wtf)
-            computed = numpy.sqrt(numpy.square(grad[0]) + numpy.square(grad[1]))
-            #self.proc.start()
-            ax = self.figure.add_subplot(111)
-            ax.imshow(wtf, interpolation="nearest", cmap=plt.get_cmap('gray'), vmin=0, vmax=max)
-            self.canvas.draw()
-
-
-            #points = vtk.vtkPoints()
-            #points.SetNumberOfPoints(2)
-            #points.Allocate(2)
-
-            #points.InsertPoint(0, 100, 100, 0.001)
-            #points.InsertPoint(0, 200, 200, 0.001)
-
-            #cells = vtk.vtkCellArray()
-            #cells.Initialize()
-
-            #line = vtk.vtkLine()
-            #line.GetPointIds().SetId(0,0)
-            #line.GetPointIds().SetId(1,1)
-            #cells.InsertNextCell(line)
-
-            #poly = vtk.vtkPolyData()
-            #poly.Initialize()
-            #poly.SetPoints(points)
-            #poly.SetLines(cells)
-            #poly.Modified()
-
-            #mapper = vtk.vtkPolyDataMapper2D()
-            #print(dir(mapper))
-            #mapper.SetInput(poly)
-            #mapper.ScalarVisibilityOn()
-            #mapper.SetScalarModeToUsePointData()
-            #mapper.Update()
-
-            #self.drawLine([(200,200), (300,300)])
-
-            #actor = vtk.vtkActor2D()
-            #actor.SetMapper(mapper)
             blend = vtk.vtkImageBlend()
             blend.AddInputConnection(self.dicomReader.GetOutputPort())
-            #blend.AddInputConnection(actor.GetOutputPort())
             self.viewer.SetInputConnection(blend.GetOutputPort())
-            #print(dir(self.viewer.GetRenderer()))
-            #self.viewer.GetRenderer().AddActor2D(actor)
 
-
-            #self.viewer.SetInputConnection(self.dicomReader.GetOutputPort())
             self.viewer.SetZSlice(0)
             self.getMedicalData()
-            self.iren.ReInitialize()
-            self.iren.Render()
-            self.iren.Start()
 
-            #actor = vtk.vtkImageActor()
-            #self.viewer.GetRenderer().AddActor(actor)
-            self.viewer.GetRenderer().Render()
+    def convertSingleData(self, imageData, RefDs):
+        ConstPixelDims = (int(RefDs.Rows), int(RefDs.Columns), 1)
+        pointData = imageData.GetPointData()
+        arrayData = pointData.GetArray(0)
+        arrayDicom = numpy_support.vtk_to_numpy(arrayData)
+        arrayDicom = arrayDicom.reshape(ConstPixelDims, order='F')
+        shape = arrayDicom.shape
+        image = arrayDicom.reshape(shape[0], shape[1])
+        image = numpy.fliplr(image).transpose()
+        return image
 
+    def convertMultipleData(self, imagesData, RefDs, seriesSize):
+        ConstPixelDims = (int(RefDs.Rows), int(RefDs.Columns), seriesSize)
+        pointsData = imagesData.GetPointData()
+        arrayData = pointsData.GetArray(0)
+        arrayDicom = numpy_support.vtk_to_numpy(arrayData)
+        arrayDicom = arrayDicom.reshape(ConstPixelDims, order='F')
+        #shape = arrayDicom.shape
+        #images = []
+        arrayDicom = numpy.swapaxes(arrayDicom, 0, 2)
+        #print(arrayDicom.shape)
+        images = [numpy.flipud(arrayDicom[i,:,:]) for i in xrange(0, arrayDicom.shape[0])]
+        #for i in xrange(0, arrayDicom.shape[0]):
+        #    image = arrayDicom[i,:,:]
+        #    image = numpy.flipud(image)
+        #    images.append(image)
+        return images
+
+
+
+    def drawSingleData(self, image, min, max, mode):
+        self.ax.imshow(image, interpolation="nearest", cmap=plt.get_cmap(mode), vmin=min, vmax=max)
+        self.figure.subplots_adjust(left=0.05, bottom=0.05, right=0.98, top=0.98)
+        self.figure.tight_layout()
+        self.canvas.draw()
 
     def getMedicalData(self):
         #print(self.dicomReader)
@@ -314,8 +187,9 @@ class AppWindow(QtGui.QMainWindow):
     @QtCore.pyqtSlot(int)
     def sliderMoved(self, value):
         try:
-            self.viewer.SetZSlice(value)
-            self.iren.Render()
+            self.min = 0;
+            self.max = self.images[value].max()
+            self.drawSingleData(self.images[value], self.min, self.max, "gray")
         except:
             raise ValueError
 
@@ -364,8 +238,11 @@ class AppWindow(QtGui.QMainWindow):
             temp = vtk.vtkStringArray()
             temp.SetNumberOfValues(len(files))
             i = 0
+            rfids = []
             for file in sorted(files):
                 temp.SetValue(i, os.path.join(str(loader.selectedFolder), file))
+                RefDs = dicom.read_file(str(os.path.join(str(loader.selectedFolder), file)))
+                rfids.append(RefDs)
                 i = i + 1
             self.dicomReader.SetFileNames(temp)
             self.dicomReader.Update()
@@ -374,13 +251,20 @@ class AppWindow(QtGui.QMainWindow):
             size = imageData.GetDimensions()
             width = size[0]
             height = size[1]
-            self.vtkWidget.setMaximumSize(QtCore.QSize(width, height))
-            self.vtkWidget.setMinimumSize(QtCore.QSize(width, height))
+
             self.viewer.SetInputConnection(self.dicomReader.GetOutputPort())
-            self.iren.ReInitialize()
+
+            self.images = self.convertMultipleData(imageData, rfids[0], self.seriesSize)
+            print(len(self.images[0]))
+            self.drawSingleData(self.images[0], 0, self.images[0].max(), "gray")
+            #for i in xrange(0, self.seriesSize):
+            #    self.viewer.SetZSlice(i)
+            #    data = self.dicomReader.GetOutput()
+            #    #print(dir(data))
+            #    #print(rfids[i])
+            #    image = self.convertSingleData(data, rfids[i])
 
             self.getMedicalData()
-
             self.enableSlider(self.seriesSize-1)
             self.ui.dicomSlider.setFocus()
 
@@ -482,19 +366,3 @@ class ThreadWait(object):
             self.obj.trigger.emit(i)
         self.obj.ended.emit()
 
-class MyInteractor(QVTKRenderWindowInteractor):
-    def __init__(self):
-        QVTKRenderWindowInteractor.__init__(self)
-        self.AddObserver("LeftButtonPressEvent", self.leftPressed)
-        self.Initialize()
-        self.Render()
-    def leftPressed(self):
-        print("WTF")
-
-class DrawThread(threading.Thread):
-    def __init__(self, data):
-        threading.Thread.__init__(self)
-        self.data = data
-    def run(self):
-        im = plt.imshow(self.data)
-        plt.show()
