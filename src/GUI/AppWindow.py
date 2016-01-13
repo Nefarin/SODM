@@ -18,6 +18,8 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import multiprocessing
+import scipy
+import scipy.interpolate
 
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QApplication
@@ -77,6 +79,8 @@ class AppWindow(QtGui.QMainWindow):
         plt.axis("off")
 
         self.firstImage = False
+        self.ui.highSlider.setInvertedAppearance(True)
+        self.ui.lowSlider.setInvertedAppearance(True)
 
         #self.vtkWidget = QVTKRenderWindowInteractor(self.ui.imageFrame)
         #self.vtkWidget.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
@@ -88,6 +92,7 @@ class AppWindow(QtGui.QMainWindow):
         self.ui.imageLayout.addWidget(self.toolbar)
 
         self.disableSlider()
+        self.thresholdingOff()
 
         self.viewer= vtk.vtkImageViewer()
         #self.vtkWidget.GetRenderWindow().AddRenderer(self.viewer.GetRenderer())
@@ -124,6 +129,7 @@ class AppWindow(QtGui.QMainWindow):
 
             self.viewer.SetZSlice(0)
             self.getMedicalData()
+            self.thresholdingOn()
 
     def convertSingleData(self, imageData, RefDs):
         ConstPixelDims = (int(RefDs.Rows), int(RefDs.Columns), 1)
@@ -134,6 +140,11 @@ class AppWindow(QtGui.QMainWindow):
         shape = arrayDicom.shape
         image = arrayDicom.reshape(shape[0], shape[1])
         image = numpy.fliplr(image).transpose()
+        self.min = image.min()
+        #print(image.min())
+        #print(image.max())
+        self.max = image.max()
+        #self.max = self.min + 4096
         return image
 
     def convertMultipleData(self, imagesData, RefDs, seriesSize):
@@ -142,34 +153,35 @@ class AppWindow(QtGui.QMainWindow):
         arrayData = pointsData.GetArray(0)
         arrayDicom = numpy_support.vtk_to_numpy(arrayData)
         arrayDicom = arrayDicom.reshape(ConstPixelDims, order='F')
-        #shape = arrayDicom.shape
-        #images = []
         arrayDicom = numpy.swapaxes(arrayDicom, 0, 2)
-        #print(arrayDicom.shape)
         images = [numpy.flipud(arrayDicom[i,:,:]) for i in xrange(0, arrayDicom.shape[0])]
-        #for i in xrange(0, arrayDicom.shape[0]):
-        #    image = arrayDicom[i,:,:]
-        #    image = numpy.flipud(image)
-        #    images.append(image)
+        self.min = images[0].min()
+        self.max = images[0].max()
+        self.image = images[0]
         return images
 
 
 
     def drawSingleData(self, image, min, max, mode):
-        #self.figure.clear()
-        #self.ax = self.figure.add_subplot(111)
-        #plt.axis("off")
-        #self.figure.subplots_adjust(left=0.00, bottom=0.00, right=1, top=1)
-        #self.ax.imshow(image, interpolation="nearest", cmap=plt.get_cmap(mode), vmin=min, vmax=max)
-        #self.ax.imshow(image, cmap=plt.get_cmap(mode), vmin=min, vmax=max)
-
-        #self.figure.tight_layout()
+        image = numpy.clip(image[:], min, max)
+        #self.map(image, min, max)
         if not self.firstImage:
-            self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin=min, vmax=max)
+            #self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode))
+            self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin = min, vmax = max)
             self.firstImage = True
         else:
-            self.im.set_data(image)
+            #self.im.set_data(image)
+            self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin = min, vmax = max)
         self.canvas.draw()
+
+    def map(self, image, min, max):
+        newImage = numpy.ndarray(image.shape)
+        lol = scipy.interpolate.interp1d([image.min(), image.max()], [min, max])
+        for i in xrange(0, image.shape[0]):
+            for j in xrange(0, image.shape[1]):
+                newImage[i][j] = lol(image[i][j])
+        return newImage
+
 
     def getMedicalData(self):
         #print(self.dicomReader)
@@ -198,8 +210,9 @@ class AppWindow(QtGui.QMainWindow):
     @QtCore.pyqtSlot(int)
     def sliderMoved(self, value):
         try:
-            self.min = 0;
-            self.max = self.images[value].max()
+            #self.min = 0;
+            #self.max = self.images[value].max()
+            self.setMinMax()
             self.drawSingleData(self.images[value], self.min, self.max, "gray")
         except:
             raise ValueError
@@ -232,8 +245,39 @@ class AppWindow(QtGui.QMainWindow):
         self.ui.dicomSlider.setValue(0)
         self.ui.dicomSlider.setMinimum(0)
         self.ui.dicomSlider.setMaximum(max)
+
         self.ui.dicomSlider.connect(self.ui.dicomSlider, QtCore.SIGNAL("valueChanged(int)"), self.sliderMoved)
         self.ui.playButton.connect(self.ui.playButton, QtCore.SIGNAL("clicked()"), self.playMovie)
+
+    def thresholdingOn(self):
+        self.ui.highSlider.setEnabled(True)
+        self.ui.lowSlider.setEnabled(True)
+
+        self.ui.highSlider.setMinimum(self.min)
+        self.ui.highSlider.setMaximum(self.max)
+
+        self.ui.lowSlider.setMinimum(self.min)
+        self.ui.lowSlider.setMaximum(self.max)
+
+        self.ui.highSlider.connect(self.ui.highSlider, QtCore.SIGNAL("valueChanged(int)"), self.tChanged)
+        self.ui.lowSlider.connect(self.ui.lowSlider, QtCore.SIGNAL(("valueChanged(int)")), self.tChanged)
+
+    def thresholdingOff(self):
+        self.ui.highSlider.setDisabled(True)
+        self.ui.lowSlider.setDisabled(True)
+
+        self.ui.highSlider.disconnect(self.ui.highSlider, QtCore.SIGNAL("valueChanged(int)"), self.tChanged)
+        self.ui.lowSlider.disconnect(self.ui.lowSlider, QtCore.SIGNAL(("valueChanged(int)")), self.tChanged)
+
+    def setMinMax(self):
+        self.currentMin = self.ui.lowSlider.value()
+        self.currentMax = self.ui.highSlider.value()
+        print(self.currentMin)
+        print(self.currentMax)
+
+    def tChanged(self):
+        self.setMinMax()
+        self.drawSingleData(self.image, self.currentMin, self.currentMax, "gray")
 
     def loadFolder(self):
         loader = self.folderLoader
@@ -276,6 +320,7 @@ class AppWindow(QtGui.QMainWindow):
 
             self.getMedicalData()
             self.enableSlider(self.seriesSize-1)
+            self.thresholdingOn()
             self.ui.dicomSlider.setFocus()
 
     def undo(self):

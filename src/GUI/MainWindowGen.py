@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'mainwindow.ui'
 #
-# Created: Wed Jan 13 01:22:58 2016
+# Created: Wed Jan 13 13:53:41 2016
 #      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -123,6 +123,26 @@ class Ui_MainWindow(object):
         self.dicomLayout.addWidget(self.imageFrame, 0, 0, 1, 1)
         self.verticalLayout_2.addLayout(self.dicomLayout)
         self.horizontalLayout_2.addWidget(self.dicomFrame)
+        self.optionsFrame = QtGui.QFrame(self.topFrame)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.optionsFrame.sizePolicy().hasHeightForWidth())
+        self.optionsFrame.setSizePolicy(sizePolicy)
+        self.optionsFrame.setFrameShape(QtGui.QFrame.StyledPanel)
+        self.optionsFrame.setFrameShadow(QtGui.QFrame.Raised)
+        self.optionsFrame.setObjectName(_fromUtf8("optionsFrame"))
+        self.horizontalLayout_3 = QtGui.QHBoxLayout(self.optionsFrame)
+        self.horizontalLayout_3.setObjectName(_fromUtf8("horizontalLayout_3"))
+        self.lowSlider = QtGui.QScrollBar(self.optionsFrame)
+        self.lowSlider.setOrientation(QtCore.Qt.Vertical)
+        self.lowSlider.setObjectName(_fromUtf8("lowSlider"))
+        self.horizontalLayout_3.addWidget(self.lowSlider)
+        self.highSlider = QtGui.QScrollBar(self.optionsFrame)
+        self.highSlider.setOrientation(QtCore.Qt.Vertical)
+        self.highSlider.setObjectName(_fromUtf8("highSlider"))
+        self.horizontalLayout_3.addWidget(self.highSlider)
+        self.horizontalLayout_2.addWidget(self.optionsFrame)
         self.verticalLayout.addWidget(self.topFrame)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
@@ -172,6 +192,8 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow", None))
         self.playButton.setText(_translate("MainWindow", "Play", None))
+        self.lowSlider.setToolTip(_translate("MainWindow", "Low Threshold", None))
+        self.highSlider.setToolTip(_translate("MainWindow", "High Threshold", None))
         self.menuFile.setTitle(_translate("MainWindow", "File", None))
         self.menuEdit.setTitle(_translate("MainWindow", "Edit", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
