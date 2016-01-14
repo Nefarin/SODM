@@ -228,6 +228,7 @@ class AppWindow(QtGui.QMainWindow):
             #self.min = 0;
             #self.max = self.images[value].max()
             self.setMinMax()
+            self.image = self.images[value]
             self.drawSingleData(self.images[value], self.min, self.max, "gray")
         except:
             raise ValueError
@@ -236,6 +237,7 @@ class AppWindow(QtGui.QMainWindow):
     def movieStep(self, value):
         self.ui.dicomSlider.setValue(value)
         self.ui.dicomSlider.setSliderDown(value)
+        self.image = self.images[value]
         self.drawSingleData(self.images[value], 0, self.images[value].max(), "gray")
 
     @QtCore.pyqtSlot()
