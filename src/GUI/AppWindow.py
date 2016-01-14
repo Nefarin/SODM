@@ -21,6 +21,7 @@ import multiprocessing
 import scipy
 import scipy.interpolate
 
+from PyQt4 import Qt
 from PyQt4 import QtCore, QtGui
 from PyQt4.QtGui import QApplication
 from MainWindowGen import Ui_MainWindow
@@ -30,6 +31,7 @@ from DebugPathBuilder import DebugPathBuilder
 from ProcessingThread import ProcessingThread
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
+import matplotlib.transforms
 
 ### End of imports section
 
@@ -48,6 +50,8 @@ class AppWindow(QtGui.QMainWindow):
         self.initToolbar()
         self.initConnections()
 
+        self.fileLoaded = "none"
+        self.grad = False
 
     def importSrc(self):
         # will be shown as errors in pyCharm
@@ -68,6 +72,7 @@ class AppWindow(QtGui.QMainWindow):
 
         #self.figure = plt.figure()
         self.figure, self.axes = plt.subplots(nrows=1, ncols=1)
+        self.figure.set
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
 
@@ -131,6 +136,8 @@ class AppWindow(QtGui.QMainWindow):
             self.viewer.SetZSlice(0)
             self.getMedicalData()
             self.thresholdingOn()
+            self.fileLoaded = "file"
+            self.actions.gradientAction.setEnabled(True)
 
     def convertSingleData(self, imageData, RefDs):
         ConstPixelDims = (int(RefDs.Rows), int(RefDs.Columns), 1)
@@ -166,6 +173,11 @@ class AppWindow(QtGui.QMainWindow):
     def drawSingleData(self, image, min, max, mode):
         image = numpy.clip(image[:], min, max)
         #self.map(image, min, max)
+        if self.grad:
+            grad = numpy.gradient(image)
+            image = numpy.sqrt(numpy.square(grad[0])+numpy.square(grad[1]))
+        else:
+            pass
         if not self.firstImage:
             #self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode))
             self.im = self.ax.imshow(image, interpolation="spline36", cmap=plt.get_cmap(mode), vmin = min, vmax = max)
@@ -259,11 +271,17 @@ class AppWindow(QtGui.QMainWindow):
         self.ui.highSlider.setMinimum(self.min)
         self.ui.highSlider.setMaximum(self.max)
 
+        self.ui.highSlider.setValue(self.max)
+
         self.ui.lowSlider.setMinimum(self.min)
         self.ui.lowSlider.setMaximum(self.max)
 
+        self.ui.lowSlider.setValue(self.min)
+
         self.ui.highSlider.connect(self.ui.highSlider, QtCore.SIGNAL("valueChanged(int)"), self.tChanged)
         self.ui.lowSlider.connect(self.ui.lowSlider, QtCore.SIGNAL(("valueChanged(int)")), self.tChanged)
+
+        self.tChanged()
 
     def thresholdingOff(self):
         self.ui.highSlider.setDisabled(True)
@@ -275,8 +293,25 @@ class AppWindow(QtGui.QMainWindow):
     def setMinMax(self):
         self.currentMin = self.ui.lowSlider.value()
         self.currentMax = self.ui.highSlider.value()
-        print(self.currentMin)
-        print(self.currentMax)
+
+        self.ui.highSlider.disconnect(self.ui.highSlider, QtCore.SIGNAL("valueChanged(int)"), self.tChanged)
+        self.ui.lowSlider.disconnect(self.ui.lowSlider, QtCore.SIGNAL(("valueChanged(int)")), self.tChanged)
+
+        temp = self.currentMin
+
+        if self.currentMin >= self.currentMax:
+            self.currentMin = self.currentMax - 1
+
+        if self.currentMax < temp:
+            self.currentMax = self.currentMin + 1
+
+
+
+        self.ui.lowSlider.setValue(self.currentMin)
+        self.ui.highSlider.setValue(self.currentMax)
+
+        self.ui.highSlider.connect(self.ui.highSlider, QtCore.SIGNAL("valueChanged(int)"), self.tChanged)
+        self.ui.lowSlider.connect(self.ui.lowSlider, QtCore.SIGNAL(("valueChanged(int)")), self.tChanged)
 
     def tChanged(self):
         self.setMinMax()
@@ -325,13 +360,15 @@ class AppWindow(QtGui.QMainWindow):
             self.enableSlider(self.seriesSize-1)
             self.thresholdingOn()
             self.ui.dicomSlider.setFocus()
+            self.fileLoaded = "series"
+            self.actions.gradientAction.setEnabled(True)
 
     def calcLength(self, xs, ys):
         length = 0
         for i in xrange(1, len(xs)):
-            length += numpy.sqrt(numpy.square(xs[i] - xs[0]) + numpy.square(ys[i] - ys[0]))
+            length += numpy.sqrt(numpy.square(xs[i] - xs[0])*0.0030 + numpy.square(ys[i] - ys[0])*0.0028)
         box = QtGui.QMessageBox(self)
-        box.setText(QtCore.QString("Line length: " + str(length)))
+        box.setText(QtCore.QString("Segment length: " + str(length)[0:6] + " mm."))
         box.show()
 
     def undo(self):
@@ -345,11 +382,27 @@ class AppWindow(QtGui.QMainWindow):
     def measure(self):
         self.measuring = not self.measuring
         if self.measuring:
+            self.drawing = True
             self.line, = self.axes.plot([],[])
             self.linebuilder = LineBuilder(self, self.line)
         else:
+            self.drawing = False
             self.figure.clf()
             #self.axes.remove(self.line)
+
+    def gradient(self):
+        if self.fileLoaded == "series":
+            if self.actions.gradientAction.isChecked():
+                self.grad = True
+            else:
+                self.grad = False
+            self.tChanged()
+        elif self.fileLoaded == "file":
+            if self.actions.gradientAction.isChecked():
+                self.grad = True
+            else:
+                self.grad = False
+            self.tChanged()
 
 class Actions(object):
     def __init__(self, parent):
@@ -396,7 +449,15 @@ class Actions(object):
         self.measureAction.setToolTip("Measure")
         self.measureAction.setCheckable(True)
         parent.ui.toolBar.addAction(self.measureAction)
-        self. measureAction.connect(self.measureAction, QtCore.SIGNAL("triggered()"), self.measure)
+        self.measureAction.connect(self.measureAction, QtCore.SIGNAL("triggered()"), self.measure)
+
+        self.gradientAction = QtGui.QAction(parent.ui.toolBar)
+        self.gradientAction.setIcon(QtGui.QIcon(DebugPathBuilder.appendPath(DebugPathBuilder.resourcePath(), "grad.png")))
+        self.gradientAction.setToolTip("Gradient")
+        self.gradientAction.setCheckable(True)
+        self.gradientAction.setDisabled(True)
+        parent.ui.toolBar.addAction(self.gradientAction)
+        self.gradientAction.connect(self.gradientAction, QtCore.SIGNAL("triggered()"), self.gradient)
 
 
 
@@ -420,6 +481,9 @@ class Actions(object):
 
     def measure(self):
         return self.parent.measure()
+
+    def gradient(self):
+        return self.parent.gradient()
 
 
 class Waiter(QtCore.QObject):
@@ -445,17 +509,33 @@ class LineBuilder:
         self.xs = list(line.get_xdata())
         self.ys = list(line.get_ydata())
         self.cid = line.figure.canvas.mpl_connect('button_press_event', self.draw)
+        self.enterEvent = line.figure.canvas.mpl_connect('figure_enter_event', self.entered)
+        self.leavedEvent = line.figure.canvas.mpl_connect('figure_leave_event', self.leaved)
 
     def draw(self, event):
-        print 'click', event
+        #print 'click', event
         if event.inaxes!=self.line.axes: return
+        #print event
         if event.button == 1:
             self.xs.append(event.xdata)
             self.ys.append(event.ydata)
             self.line.set_data(self.xs, self.ys)
+            self.line.figure.subplots_adjust(left=0.00, bottom=0.00, right=1.00, top=1.00)
             self.line.figure.canvas.draw()
+            self.line.figure.tight_layout()
+            self.line.figure.canvas.updateGeometry()
         if event.button == 3:
             self.line.figure.canvas.mpl_disconnect(self.cid)
             self.parent.calcLength(self.xs, self.ys)
-            self.line.figure.remove(self.line)
+            #self.line.figure.remove(self.line)
+            self.parent.drawing = False
+            self.parent.measuring = False
+            self.parent.actions.measureAction.setChecked(False)
+
+    def entered(self, event):
+        if self.parent.drawing:
+            self.parent.parent.setOverrideCursor(QtGui.QCursor(QtCore.Qt.CrossCursor))
+    def leaved(self, event):
+        if self.parent.drawing:
+            self.parent.parent.restoreOverrideCursor()
 
